@@ -1,6 +1,9 @@
+#pragma once
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #define COMMA ,
 
@@ -10,6 +13,11 @@
 
 typedef uint64_t counter_t; // counter must be large sized to be consistent with padding of embedded struct
 
+struct RefCounted {
+    uint64_t count;
+    char bytes[];
+};
+
 #define STATIC_RC(name, type, val) struct { \
     counter_t count; \
     type value; \
@@ -18,18 +26,46 @@ const type* name() { return &__base_##name.value; }
 
 #define STATIC_RC_HEADER(name, type, val) const type* name();
 
-void* ref_counted_alloc(size_t size_of);
+static inline void* ref_counted_alloc_with_count(size_t size_of, counter_t count) {
+    struct RefCounted* ptr = malloc(sizeof(struct RefCounted) + size_of);
+    assert(ptr);
+    ptr->count = count;
+    return &ptr->bytes;
+}
 
-void incr_count(const void* ptr);
+static inline void* ref_counted_alloc(size_t size_of) {
+    return ref_counted_alloc_with_count(size_of, 1);
+}
+
+#define TO_REF_COUNTED(ptr) ((struct RefCounted*)(((char*)(ptr)) - sizeof(counter_t)))
+
+static inline void incr_count(const void* ptr) {
+    assert(ptr);
+    TO_REF_COUNTED(ptr)->count++;    
+}
 
 typedef void (*cleaner_t)(const void*);
 
-void decr_count(const void* ptr, cleaner_t clean_);
+static inline void decr_count(const void* ptr, cleaner_t clean_) {
+    assert(ptr);
+    assert(clean_);
+    if (!--TO_REF_COUNTED(ptr)->count) {
+        clean_((void*)ptr);
+        free(TO_REF_COUNTED(ptr));
+    }
+}
 
-void* fake_rc_alloc(size_t size_of);
+static inline void* fake_rc_alloc(size_t size_of) {
+    return ref_counted_alloc_with_count(size_of, UINT64_MAX / 2);
+}
 
-void fake_rc_free(const void* ptr, cleaner_t clean_);
+static inline void fake_rc_free(const void* ptr, cleaner_t clean_) {
+    clean_((void*)ptr);
+    free(TO_REF_COUNTED(ptr));
+}
 
-uint64_t get_count(const void* ptr);
+static inline uint64_t get_count(const void* ptr) {
+    return TO_REF_COUNTED(ptr)->count;
+}
 
 #define CLONE(ptr) ({__auto_type _ptr = ptr; incr_count(_ptr); _ptr;})

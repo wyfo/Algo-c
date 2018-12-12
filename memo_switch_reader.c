@@ -14,7 +14,7 @@ struct Memoized {
 
 #define UNINIT_MARKER ((void*)1)
 
-VTABLE
+VTABLE(memo_switch)
 
 // #define MEMOIZATION_PTR(ptr) ({ \
 //     const struct SwitchReader* _ptr = ptr; \
@@ -38,7 +38,7 @@ static void clean_memo_result(struct ReadingResult res) {
 //     for (size_t i = 0; i < memo->nb_reads; ++i) clean_memo_result(memo->reads[i]);
 // }
 
-static void _clean(const void* reader) {
+static void memo_switch_clean(const void* reader) {
     const struct Memoized* self = reader;
     clean_memo_result(self->epsilon);
     for (size_t i = 0; i < self->nb_reads; ++i) clean_memo_result(self->reads[i]);
@@ -106,7 +106,7 @@ static inline struct Memoized* alloc(size_t nb_cases, matching_policy_t policy, 
             } \
         } \
     } \
-    return (struct ReadingResult){success, {ongoing, &_vtable}}; \
+    return (struct ReadingResult){success, {ongoing, &memo_switch_vtable}}; \
 
 static struct ReadingResult __epsilon(const void* reader) {
     PROCESS(epsilon,)
@@ -116,7 +116,7 @@ static struct ReadingResult __read(const void* reader, char token) {
     PROCESS(read,COMMA token)
 }
 
-static struct ReadingResult _epsilon(const void* reader) {
+static struct ReadingResult memo_switch_epsilon(const void* reader) {
     struct Memoized* self = (void*)reader;
     if (self->epsilon.success == UNINIT_MARKER) {
         self->epsilon = __epsilon(reader);
@@ -124,7 +124,7 @@ static struct ReadingResult _epsilon(const void* reader) {
     return clone_reading_result(self->epsilon);
 }
 
-static struct ReadingResult _read(const void* reader, char token) {
+static struct ReadingResult memo_switch_read(const void* reader, char token) {
     struct Memoized* self = (void*)reader;
     size_t index = (unsigned char)token;
     if (self->reads[index].success == UNINIT_MARKER) {
@@ -139,5 +139,5 @@ struct Reader memo_switch_reader_of(struct Reader cases[], size_t nb_cases, matc
     struct SwitchReader* swr = SWITCH_READER_PTR(ptr);
     swr->nb_cases = nb_cases;
     for (size_t i = 0; i < nb_cases; ++i) swr->cases[i] = (struct SwitchCase){cases[i], i};
-    return (struct Reader){ptr, &_vtable};
+    return (struct Reader){ptr, &memo_switch_vtable};
 }

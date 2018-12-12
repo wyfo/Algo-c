@@ -57,20 +57,21 @@ static inline struct ReadingResult read_and_resolve(const struct ReaderVTable* v
     return (struct ReadingResult){success, ongoing};
 }
 
-#define RESOLUTION_READER \
+#define RESOLUTION_READER(prefix) \
+    VTABLE(resolution_##prefix)\
     static _Noreturn const struct TraceList* resolve(const struct ResolutionReader* reader, const struct TraceList* succeeded_trace, const struct TraceList* still_ongoing_trace); \
     \
-    static inline void resolution_clean(const void* reader) { \
+    static inline void resolution_##prefix##_clean(const void* reader) { \
         const struct ResolutionReader* self = reader; \
         decr_count_reader(self->succeeded); \
         decr_count_reader(self->still_ongoing); \
         decr_count(self->success_trace, &clean_trace_list); \
     } \
     \
-    static inline _Noreturn struct ReadingResult resolution_epsilon(const void* reader) { \
+    static inline _Noreturn struct ReadingResult resolution_##prefix##_epsilon(const void* reader) { \
         abort(); \
     } \
     \
-    static inline struct ReadingResult resolution_read(const void* reader, char token) { \
-        return read_and_resolve(&resolution_vtable, reader, token, &resolve); \
+    static inline struct ReadingResult resolution_##prefix##_read(const void* reader, char token) { \
+        return read_and_resolve(&resolution_##prefix##_vtable, reader, token, &resolve); \
     }

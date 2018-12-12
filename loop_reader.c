@@ -4,10 +4,10 @@
 #include "utils.h"
 #include "resolution_reader.h"
 
-VTABLE
-PREFIXED_VTABLE(resolution)
+VTABLE(loop)
+RESOLUTION_READER(loop)
 
-static void _clean(const void* reader) {
+static void loop_clean(const void* reader) {
     const struct LoopReader* self = reader;
     decr_count_reader(self->ref);
     decr_count_reader(self->variant);
@@ -47,23 +47,23 @@ static inline struct LoopReader* shift(const struct LoopReader* self, const stru
     return ptr;
 }
 
-static struct ReadingResult _epsilon(const void* reader) {
+static struct ReadingResult loop_epsilon(const void* reader) {
     const struct LoopReader* self = reader;
     return (struct ReadingResult){
         push_swith_trace(empty_trace_list(), 0, self->policy),
-        {replace(self, first_variant(self->ref)), &_vtable}
+        {replace(self, first_variant(self->ref)), &loop_vtable}
     };
 }
-static struct ReadingResult _read(const void* reader, char token) {
+static struct ReadingResult loop_read(const void* reader, char token) {
     const struct LoopReader* self = reader;
     struct ReadingResult res = read(self->variant, token);
-    struct Reader ongoing = res.ongoing.self ? (struct Reader){replace(self, res.ongoing), &_vtable} : NO_READER;
+    struct Reader ongoing = res.ongoing.self ? (struct Reader){replace(self, res.ongoing), &loop_vtable} : NO_READER;
     if (res.success) {
         const struct LoopReader* shifted = shift(self, res.success);
         const struct TraceList* success = CLONE(shifted->prev_traces);
         // res.success is used move, but by ref
         // should be incr and decr instead
-        struct Reader ongoing2 = resolution_reader_of(&resolution_vtable, (struct Reader){shifted, &_vtable}, ongoing, res.success, self->cursor);
+        struct Reader ongoing2 = resolution_reader_of(&resolution_loop_vtable, (struct Reader){shifted, &loop_vtable}, ongoing, res.success, self->cursor);
         return (struct ReadingResult){push_swith_trace(success, shifted->cursor * shifted->ordering, shifted->policy), ongoing2};
     } else {
         return (struct ReadingResult){NULL, ongoing};
@@ -75,10 +75,9 @@ struct Reader loop_reader_of(struct Reader ref, matching_policy_t policy, loop_o
     ptr->cursor = 0;
     ptr->variant = ref;
     ptr->prev_traces = empty_trace_list();
-    return (struct Reader){ptr, &_vtable};
+    return (struct Reader){ptr, &loop_vtable};
 }
 
-RESOLUTION_READER
 
 static _Noreturn const struct TraceList* resolve(const struct ResolutionReader* reader, const struct TraceList* succeeded_trace, const struct TraceList* still_ongoing_trace) {
     abort();

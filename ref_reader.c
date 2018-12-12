@@ -1,28 +1,28 @@
 #include <assert.h>
 #include "ref_reader.h"
 
-VTABLE
+VTABLE(ref)
 
-static void _clean(const void* reader) {
+static void ref_clean(const void* reader) {
     const struct RefReader* self = reader;
     assert(self->ref.self);
     decr_count_reader(self->ref);
 }
 
-static struct ReadingResult _epsilon(const void* reader) {
+static struct ReadingResult ref_epsilon(const void* reader) {
     const struct RefReader* self = reader;
     assert(self->ref.self);
     return epsilon(self->ref);
 }
 
-static _Noreturn struct ReadingResult _read(const void* reader, char token) {
+static _Noreturn struct ReadingResult ref_read(const void* reader, char token) {
     abort();
 }
 
 struct Reader ref_reader() {
     struct RefReader* ptr = fake_rc_alloc(sizeof(struct RefReader));
     ptr->ref = NO_READER;
-    return (struct Reader){ptr, &_vtable};
+    return (struct Reader){ptr, &ref_vtable};
 }
 
 void set_ref(const void* ref_reader, struct Reader ref) {

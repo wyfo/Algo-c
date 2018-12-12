@@ -63,10 +63,8 @@ static inline struct ReadingResult read(struct Reader reader, char token) {
 	return reader.vtable->read(reader.self, token);
 }
 
-#define PREFIXED_VTABLE(prefix) \
+#define VTABLE(prefix) \
 	static void prefix##_clean(const void* reader); \
 	static struct ReadingResult prefix##_epsilon(const void* reader); \
 	static struct ReadingResult prefix##_read(const void* reader, char token); \
 	static struct ReaderVTable prefix##_vtable = {&prefix##_read, &prefix##_epsilon, &prefix##_clean};
-
-#define VTABLE PREFIXED_VTABLE()

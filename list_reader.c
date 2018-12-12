@@ -21,10 +21,10 @@ const struct ReaderList* reader_list_of(const struct Reader readers[], size_t si
     return ptr;
 }
 
-VTABLE
-PREFIXED_VTABLE(resolution)
+VTABLE(list)
+RESOLUTION_READER(list)
 
-static void _clean(const void* reader) {
+static void list_clean(const void* reader) {
     const struct ListReader* self = reader;
     decr_count_reader(self->cur_elt);
     decr_count(self->elts, clean_reader_list);
@@ -56,15 +56,15 @@ static inline struct ListReader shift(const struct ListReader* self, const struc
 }
 
 static inline struct ReadingResult process(const struct ListReader* self, struct ReadingResult res) {
-    struct Reader ongoing = res.ongoing.self ? (struct Reader){replace(self, res.ongoing), &_vtable} : NO_READER;
+    struct Reader ongoing = res.ongoing.self ? (struct Reader){replace(self, res.ongoing), &list_vtable} : NO_READER;
     if (res.success) {
         if (self->cursor == self->elts->size - 1) {
             const struct TraceList* success = push_reversed_trace(CLONE(self->prev_traces), res.success);
             return (struct ReadingResult){success, ongoing};
         } else {
             struct ListReader shifted = shift(self, res.success);
-            struct ReadingResult forward_epsilon = _epsilon(&shifted);
-            struct Reader forward_ongoing = resolution_reader_of(&resolution_vtable, forward_epsilon.ongoing, ongoing, res.success, self->cursor);
+            struct ReadingResult forward_epsilon = list_epsilon(&shifted);
+            struct Reader forward_ongoing = resolution_reader_of(&resolution_list_vtable, forward_epsilon.ongoing, ongoing, res.success, self->cursor);
             decr_count(shifted.prev_traces, clean_trace_list);
             return (struct ReadingResult){forward_epsilon.success, forward_ongoing};
         }
@@ -73,11 +73,11 @@ static inline struct ReadingResult process(const struct ListReader* self, struct
     }
 }
 
-static struct ReadingResult _epsilon(const void* reader) {
+static struct ReadingResult list_epsilon(const void* reader) {
     const struct ListReader* self = reader;
     return process(self, epsilon(self->cur_elt));
 }
-static struct ReadingResult _read(const void* reader, char token) {
+static struct ReadingResult list_read(const void* reader, char token) {
     const struct ListReader* self = reader;
     return process(self, read(self->cur_elt, token));
 }
@@ -88,10 +88,9 @@ struct Reader list_reader_of(const struct Reader elts[], size_t nb_elts, tag_t t
     ptr->cur_elt = clone_reader(elts[0]);
     ptr->prev_traces = empty_trace_list();
     ptr->tag = tag;
-    return (struct Reader){ptr, &_vtable};
+    return (struct Reader){ptr, &list_vtable};
 }
 
-RESOLUTION_READER
 
 static _Noreturn const struct TraceList* resolve(const struct ResolutionReader* reader, const struct TraceList* succeeded_trace, const struct TraceList* still_ongoing_trace) {
     abort();

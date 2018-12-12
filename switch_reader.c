@@ -3,9 +3,9 @@
 #include "utils.h"
 #include "switch_reader.h"
 
-VTABLE
+VTABLE(switch)
 
-static void _clean(const void* reader) {
+static void switch_clean(const void* reader) {
     const struct SwitchReader* self = reader;
     for (size_t i = 0; i < self->nb_cases; ++i) decr_count_reader(self->cases[i].reader);
 }
@@ -51,13 +51,13 @@ static inline struct SwitchReader* alloc(size_t nb_cases, matching_policy_t poli
             } \
         } \
     } \
-    return (struct ReadingResult){success, {ongoing, &_vtable}}; \
+    return (struct ReadingResult){success, {ongoing, &switch_vtable}}; \
 
-static struct ReadingResult _epsilon(const void* reader) {
+static struct ReadingResult switch_epsilon(const void* reader) {
     PROCESS(epsilon,)
 }
 
-static struct ReadingResult _read(const void* reader, char token) {
+static struct ReadingResult switch_read(const void* reader, char token) {
     PROCESS(read,COMMA token)
 }
 
@@ -65,5 +65,5 @@ struct Reader switch_reader_of(struct Reader cases[], size_t nb_cases, matching_
     struct SwitchReader* ptr = alloc(nb_cases, policy, tag);
     ptr->nb_cases = nb_cases;
     for (size_t i = 0; i < nb_cases; ++i) ptr->cases[i] = (struct SwitchCase){cases[i], i};
-    return (struct Reader){ptr, &_vtable};
+    return (struct Reader){ptr, &switch_vtable};
 }

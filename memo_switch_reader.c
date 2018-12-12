@@ -8,61 +8,36 @@
 
 struct Memoized {
     struct ReadingResult epsilon;
+    unsigned char flags[32];
+    bool eps_flag;
     size_t nb_reads; 
     struct ReadingResult reads[];
 };
 
-#define UNINIT_MARKER ((void*)1)
+static inline bool is_init(const struct Memoized* self, unsigned char token) {
+    return self->flags[token / 8] & (1 << (token % 8));
+}
 
 VTABLE(memo_switch)
-
-// #define MEMOIZATION_PTR(ptr) ({ \
-//     const struct SwitchReader* _ptr = ptr; \
-//     (struct Memoized*)(((char*)_ptr) + sizeof(struct SwitchReader) + _ptr->nb_cases * sizeof(struct SwitchCase)); \
-// })
 
 #define SWITCH_READER_PTR(ptr) ({ \
     const struct Memoized* _ptr = ptr; \
     (struct SwitchReader*)((char*)_ptr + sizeof(struct Memoized) + _ptr->nb_reads * sizeof(struct ReadingResult));\
 })
 
-static void clean_memo_result(struct ReadingResult res) {
-    if (res.success != UNINIT_MARKER) clean_reading_result(res);
-}
-
-// static void _clean(const void* reader) {
-//     const struct SwitchReader* self = reader;
-//     for (size_t i = 0; i < self->nb_cases; ++i) decr_count_reader(self->cases[i].reader);
-//     struct Memoized* memo = MEMOIZATION_PTR(reader);
-//     clean_memo_result(memo->epsilon);
-//     for (size_t i = 0; i < memo->nb_reads; ++i) clean_memo_result(memo->reads[i]);
-// }
-
 static void memo_switch_clean(const void* reader) {
     const struct Memoized* self = reader;
-    clean_memo_result(self->epsilon);
-    for (size_t i = 0; i < self->nb_reads; ++i) clean_memo_result(self->reads[i]);
+    if (self->eps_flag) clean_reading_result(self->epsilon);
+    for (size_t i = 0; i < self->nb_reads; ++i) if (is_init(self, i)) clean_reading_result(self->reads[i]);
     const struct SwitchReader* swr = SWITCH_READER_PTR(self);
     for (size_t i = 0; i < swr->nb_cases; ++i) decr_count_reader(swr->cases[i].reader);
 }
 
-// static inline struct SwitchReader* alloc(size_t nb_cases, matching_policy_t policy, tag_t tag, size_t nb_tokens) {
-//     struct SwitchReader* ptr = ref_counted_alloc(sizeof(struct SwitchReader) + nb_cases * sizeof(struct SwitchCase) + sizeof(struct Memoized) + nb_tokens * sizeof(struct ReadingResult));
-//     ptr->nb_cases = nb_cases;
-//     struct Memoized* memo = MEMOIZATION_PTR(ptr);
-//     memo->nb_reads = nb_tokens;
-//     memo->epsilon = (struct ReadingResult){UNINIT_MARKER, NO_READER};
-//     for (size_t i = 0; i < nb_tokens; ++i) memo->reads[i] = (struct ReadingResult){UNINIT_MARKER, NO_READER};
-//     ptr->policy = policy;
-//     ptr->tag = tag;
-//     return ptr;
-// }
-
 static inline struct Memoized* alloc(size_t nb_cases, matching_policy_t policy, tag_t tag, size_t nb_tokens) {
     struct Memoized* ptr = ref_counted_alloc(sizeof(struct Memoized) + nb_tokens * sizeof(struct ReadingResult) + sizeof(struct SwitchReader) + nb_cases * sizeof(struct SwitchCase));
     ptr->nb_reads = nb_tokens;
-    ptr->epsilon = (struct ReadingResult){UNINIT_MARKER, NO_READER};
-    for (size_t i = 0; i < nb_tokens; ++i) ptr->reads[i] = (struct ReadingResult){UNINIT_MARKER, NO_READER};
+    memset(ptr->flags, 0, 32);
+    ptr->eps_flag = false;
     struct SwitchReader* swr = SWITCH_READER_PTR(ptr);
     swr->policy = policy;
     swr->tag = tag;
@@ -118,7 +93,8 @@ static struct ReadingResult __read(const void* reader, char token) {
 
 static struct ReadingResult memo_switch_epsilon(const void* reader) {
     struct Memoized* self = (void*)reader;
-    if (self->epsilon.success == UNINIT_MARKER) {
+    if (!self->eps_flag) {
+        self->eps_flag = true;
         self->epsilon = __epsilon(reader);
     }
     return clone_reading_result(self->epsilon);
@@ -127,7 +103,9 @@ static struct ReadingResult memo_switch_epsilon(const void* reader) {
 static struct ReadingResult memo_switch_read(const void* reader, char token) {
     struct Memoized* self = (void*)reader;
     size_t index = (unsigned char)token;
-    if (self->reads[index].success == UNINIT_MARKER) {
+    if (!is_init(self, index)) {
+        self->flags[index / 8] |= 1 << index % 8;
+        assert(is_init(self, index));
         self->reads[index] = __read(reader, token);
     }
     return clone_reading_result(self->reads[index]);

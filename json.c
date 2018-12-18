@@ -93,8 +93,8 @@ struct Reader json_lexer() {
 
 }
 
-struct Reader json_parser() {
-    struct Reader value = ref_reader();
+struct Reader json_parser(struct RefReaderList* ref_reader_list) {
+    struct Reader value = ref_reader(ref_reader_list);
     struct Reader array = list_reader_of((struct Reader[]){
         char_reader(4),
         opt_reader(list_reader_of((struct Reader[]){

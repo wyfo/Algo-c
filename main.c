@@ -177,8 +177,9 @@ int main(int argc, char const *argv[]) {
 	size_t json_size = file_to_string("Foods.json", &json);
 	if (!json) return 1;
 	clock_t t1 = clock();
+	struct RefReaderList ref_reader_list = new_ref_reader_list();
 	struct Reader lexer = json_lexer();
-	struct Reader parser = json_parser();
+	struct Reader parser = json_parser(&ref_reader_list);
 	clock_t t2 = clock();
 	struct TokenList tokens = lexe(json, json_size, lexer);
 	printf("Nb tokens read = %lu\n", tokens.len);
@@ -192,8 +193,9 @@ int main(int argc, char const *argv[]) {
 	assert(res.success);
 	if (res.success) decr_count(res.success, clean_trace_list);
 	free_token_list(tokens);
-	fake_rc_free(parser.self, parser.vtable->free);
+	decr_count_reader(parser);
 	decr_count_reader(lexer);
+	clean_ref_reader_list(ref_reader_list);
 	clock_t t5 = clock();
 	print_time(t0, t1, "file buffering");
 	print_time(t1, t2, "allocating readers");

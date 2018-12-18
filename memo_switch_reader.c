@@ -25,12 +25,17 @@ VTABLE(memo_switch)
     (struct SwitchReader*)((char*)_ptr + sizeof(struct Memoized) + _ptr->nb_reads * sizeof(struct ReadingResult));\
 })
 
+static inline void clean_memoized_result(struct ReadingResult res) {
+    if (res.success) decr_count(res.success, clean_trace_list);
+    if (res.ongoing.self) fake_rc_free(res.ongoing.self, memo_switch_clean);
+}
+
 static void memo_switch_clean(const void* reader) {
     const struct Memoized* self = reader;
-    if (self->eps_flag) clean_reading_result(self->epsilon);
-    for (size_t i = 0; i < self->nb_reads; ++i) if (is_init(self, i)) clean_reading_result(self->reads[i]);
     const struct SwitchReader* swr = SWITCH_READER_PTR(self);
     for (size_t i = 0; i < swr->nb_cases; ++i) decr_count_reader(swr->cases[i].reader);
+    if (self->eps_flag) clean_memoized_result(self->epsilon);
+    for (size_t i = 0; i < self->nb_reads; ++i) if (is_init(self, i)) clean_memoized_result(self->reads[i]);
 }
 
 static inline struct Memoized* alloc(size_t nb_cases, matching_policy_t policy, tag_t tag, size_t nb_tokens) {

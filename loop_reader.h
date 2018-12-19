@@ -15,3 +15,6 @@ struct LoopReader {
 };
 
 struct Reader loop_reader_of(struct Reader ref, matching_policy_t policy, loop_ordering_t ordering, tag_t tag);
+
+
+struct Reader impure_loop_reader_of(struct Reader ref, matching_policy_t policy, loop_ordering_t ordering, tag_t tag);

@@ -25,6 +25,10 @@ struct Reader opt_reader(struct Reader reader) {
     return switch_reader_of((struct Reader[]){epsilon_reader(), reader}, 2, LONGEST, 0);
 }
 
+struct Reader impure_opt_reader(struct Reader reader) {
+    return impure_switch_reader_of((struct Reader[]){epsilon_reader(), reader}, 2, LONGEST, 0);
+}
+
 struct Reader json_lexer() {
     struct Reader LEFT_BRACE = char_reader('{');
     struct Reader RIGHT_BRACE = char_reader('}');
@@ -120,6 +124,7 @@ struct Reader json_parser(struct RefReaderList* ref_reader_list) {
             }, 2, 0), LONGEST, INCREASING, 0)}, 2, 0)),
         char_reader(1),
     }, 3, 0);
+    // set_ref(value.self, switch_reader_of((struct Reader[]){
     set_ref(value.self, memo_switch_reader_of((struct Reader[]){
         char_reader(11),
         char_reader(10),
@@ -129,5 +134,65 @@ struct Reader json_parser(struct RefReaderList* ref_reader_list) {
         char_reader(7),
         char_reader(8)
     }, 7, LONGEST, 0, 12));
-    return value;
+    // }, 7, LONGEST, 0));
+    // return value;
+    struct Reader array2 = impure_list_reader_of((struct Reader[]){
+        char_reader(4),
+        impure_opt_reader(impure_list_reader_of((struct Reader[]){
+            value,
+            impure_loop_reader_of(impure_list_reader_of((struct Reader[]){
+                char_reader(2),
+                value
+            }, 2, 0), LONGEST, INCREASING, 0)}, 2, 0)),
+        char_reader(5),
+    }, 3, 0);
+    struct Reader pair2 = impure_list_reader_of((struct Reader[]){
+        char_reader(11),
+        char_reader(3),
+        value
+    }, 3, 0);
+    struct Reader obj2 = impure_list_reader_of((struct Reader[]){
+        char_reader(0),
+        impure_opt_reader(impure_list_reader_of((struct Reader[]){
+            clone_reader(pair2),
+            impure_loop_reader_of(impure_list_reader_of((struct Reader[]){
+                char_reader(2),
+                pair2
+            }, 2, 0), LONGEST, INCREASING, 0)}, 2, 0)),
+        char_reader(1),
+    }, 3, 0);
+    // struct Reader array2 = list_reader_of((struct Reader[]){
+    //     char_reader(4),
+    //     opt_reader(list_reader_of((struct Reader[]){
+    //         value,
+    //         loop_reader_of(list_reader_of((struct Reader[]){
+    //             char_reader(2),
+    //             value
+    //         }, 2, 0), LONGEST, INCREASING, 0)}, 2, 0)),
+    //     char_reader(5),
+    // }, 3, 0);
+    // struct Reader pair2 = list_reader_of((struct Reader[]){
+    //     char_reader(11),
+    //     char_reader(3),
+    //     value
+    // }, 3, 0);
+    // struct Reader obj2 = list_reader_of((struct Reader[]){
+    //     char_reader(0),
+    //     opt_reader(list_reader_of((struct Reader[]){
+    //         clone_reader(pair2),
+    //         loop_reader_of(list_reader_of((struct Reader[]){
+    //             char_reader(2),
+    //             pair2
+    //         }, 2, 0), LONGEST, INCREASING, 0)}, 2, 0)),
+    //     char_reader(1),
+    // }, 3, 0);
+    return switch_reader_of((struct Reader[]){
+        char_reader(11),
+        char_reader(10),
+        obj2,
+        array2,
+        char_reader(6),
+        char_reader(7),
+        char_reader(8)
+    }, 7, LONGEST, 0);
 }

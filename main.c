@@ -168,6 +168,9 @@ static inline void print_time(clock_t start, clock_t end, const char* msg) {
 	printf("%s = %f\n", msg, ((double)end - start) / CLOCKS_PER_SEC);
 }
 
+unsigned int nb_alloc = 0;
+void* log_ = 0;
+
 int main(int argc, char const *argv[]) {
 	// test(); return 0;
 	// const char* json = "{ \"plop\": null }";
@@ -185,13 +188,14 @@ int main(int argc, char const *argv[]) {
 	printf("Nb tokens read = %lu\n", tokens.len);
 	fflush(stdout);
 	clock_t t3 = clock();
-	struct ParsingResult res = parse((const char*)get_tokens(tokens), tokens.len, parser);
-	if (res.success) printf("Hello world!\n");
-	else printf("Nb tokens consumed = %lu\n", res.nb_tokens_read);
+	nb_alloc = 0;
+	// struct ParsingResult res = parse((const char*)get_tokens(tokens), tokens.len, parser);
+	// if (res.success) printf("Hello world!\n");
+	// else printf("Nb tokens consumed = %lu\n", res.nb_tokens_read);
 	fflush(stdout);
 	clock_t t4 = clock();
-	assert(res.success);
-	if (res.success) decr_count(res.success, clean_trace_list);
+	// assert(res.success);
+	// if (res.success) decr_count(res.success, clean_trace_list);
 	free_token_list(tokens);
 	decr_count_reader(parser);
 	decr_count_reader(lexer);

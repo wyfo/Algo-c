@@ -27,7 +27,7 @@ VTABLE(memo_switch)
 
 static inline void clean_memoized_result(struct ReadingResult res) {
     if (res.success) decr_count(res.success, clean_trace_list);
-    if (res.ongoing.self) fake_rc_free(res.ongoing.self, memo_switch_clean);
+    if (res.ongoing.self) decr_count_reader(res.ongoing);
 }
 
 static void memo_switch_clean(const void* reader) {
@@ -123,4 +123,33 @@ struct Reader memo_switch_reader_of(struct Reader cases[], size_t nb_cases, matc
     swr->nb_cases = nb_cases;
     for (size_t i = 0; i < nb_cases; ++i) swr->cases[i] = (struct SwitchCase){cases[i], i};
     return (struct Reader){ptr, &memo_switch_vtable};
+}
+
+struct ReaderVTable* memo_vtable = &memo_switch_vtable;
+
+static void rec_memo_clean(const void* reader);
+
+static inline void clean_memoized_result_rec(struct ReadingResult res) {
+    if (res.success) decr_count(res.success, clean_trace_list);
+    if (res.ongoing.self) rec_memo_clean(res.ongoing.self);
+}
+
+
+static void rec_memo_clean(const void* reader) {
+    const struct Memoized* self = reader;
+    const struct SwitchReader* swr = SWITCH_READER_PTR(self);
+    for (size_t i = 0; i < swr->nb_cases; ++i) decr_count_reader(swr->cases[i].reader);
+    if (self->eps_flag) clean_memoized_result_rec(self->epsilon);
+    for (size_t i = 0; i < self->nb_reads; ++i) if (is_init(self, i)) clean_memoized_result_rec(self->reads[i]);
+}
+
+static void rec_memo_free(const void* reader) {
+    const struct Memoized* self = reader;
+    if (self->eps_flag && self->epsilon.ongoing.self) fake_rc_free(self->epsilon.ongoing.self, &rec_memo_free);
+    for (size_t i = 0; i < self->nb_reads; ++i) if (is_init(self, i) && self->reads[i].ongoing.self) fake_rc_free(self->reads[i].ongoing.self, &rec_memo_free);
+}
+
+void memo_clean(const void* reader) {
+    rec_memo_clean(reader);
+    fake_rc_free(reader, &rec_memo_free);
 }

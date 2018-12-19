@@ -68,3 +68,8 @@ static inline struct ReadingResult read(struct Reader reader, char token) {
 	static struct ReadingResult prefix##_epsilon(const void* reader); \
 	static struct ReadingResult prefix##_read(const void* reader, char token); \
 	static struct ReaderVTable prefix##_vtable = {&prefix##_read, &prefix##_epsilon, &prefix##_clean};
+
+#define IMPURE_VTABLE(prefix) \
+	static struct ReadingResult impure_##prefix##_epsilon(const void* reader); \
+	static struct ReadingResult impure_##prefix##_read(const void* reader, char token); \
+	static struct ReaderVTable impure_##prefix##_vtable = {&impure_##prefix##_read, &impure_##prefix##_epsilon, &prefix##_clean};

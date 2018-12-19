@@ -11,7 +11,14 @@
 
 #define let __auto_type const
 
+#define MOVED(x) x
+
+#define REF(x) x
+
 typedef uint64_t counter_t; // counter must be large sized to be consistent with padding of embedded struct
+
+extern unsigned int nb_alloc;
+extern void* log_;
 
 struct RefCounted {
     uint64_t count;
@@ -29,6 +36,7 @@ const type* name() { return &__base_##name.value; }
 static inline void* ref_counted_alloc_with_count(size_t size_of, counter_t count) {
     struct RefCounted* ptr = malloc(sizeof(struct RefCounted) + size_of);
     assert(ptr);
+    nb_alloc++;
     ptr->count = count;
     return &ptr->bytes;
 }
@@ -49,6 +57,7 @@ typedef void (*cleaner_t)(const void*);
 static inline void decr_count(const void* ptr, cleaner_t clean_) {
     assert(ptr);
     assert(clean_);
+    assert(TO_REF_COUNTED(ptr)->count > 0); 
     if (!--TO_REF_COUNTED(ptr)->count) {
         clean_((void*)ptr);
         free(TO_REF_COUNTED(ptr));
@@ -64,8 +73,6 @@ static inline void fake_rc_free(const void* ptr, cleaner_t clean_) {
     free(TO_REF_COUNTED(ptr));
 }
 
-static inline uint64_t get_count(const void* ptr) {
-    return TO_REF_COUNTED(ptr)->count;
-}
+uint64_t get_count(const void* ptr);
 
 #define CLONE(ptr) ({__auto_type _ptr = ptr; incr_count(_ptr); _ptr;})

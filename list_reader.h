@@ -19,3 +19,6 @@ struct ReaderList {
 void clean_reader_list(const void* reader_list);
 
 struct Reader list_reader_of(const struct Reader elts[], size_t nb_elts, tag_t tag);
+
+
+struct Reader impure_list_reader_of(const struct Reader elts[], size_t nb_elts, tag_t tag);

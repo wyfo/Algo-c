@@ -78,6 +78,57 @@ struct Reader loop_reader_of(struct Reader ref, matching_policy_t policy, loop_o
     return (struct Reader){ptr, &loop_vtable};
 }
 
+IMPURE_VTABLE(loop)
+IMPURE_RESOLUTION_READER(loop)
+
+static struct ReadingResult impure_loop_epsilon(const void* reader) {
+    const struct LoopReader* self = reader;
+    return (struct ReadingResult){
+        push_swith_trace(empty_trace_list(), 0, self->policy),
+        {replace(self, first_variant(self->ref)), &impure_loop_vtable}
+    };
+}
+
+static struct ReadingResult impure_loop_read(const void* reader, char token) {
+    struct LoopReader* self = reader;
+    struct ReadingResult res = read(self->variant, token);
+    if (res.ongoing.self) {
+        incr_count(self);
+        decr_count_reader(self->variant);
+        self->variant = res.ongoing;
+        if (res.success) {
+            // TODO use shift incr prev_traces count but it's not needed
+            const struct LoopReader* shifted = shift(self, res.success);
+            const struct TraceList* success = CLONE(shifted->prev_traces);
+            struct ResolutionReader* reso = ref_counted_alloc(sizeof(struct ResolutionReader));
+            reso->succeeded = (struct Reader){shifted, &impure_loop_vtable};
+            reso->still_ongoing = (struct Reader){self, &impure_loop_vtable};
+            reso->success_trace = CLONE(res.success);
+            reso->cursor = self->cursor;
+            return (struct ReadingResult){push_swith_trace(success, shifted->cursor * shifted->ordering, shifted->policy), {reso, &impure_resolution_loop_vtable}};
+        } else {
+            return (struct ReadingResult){NULL, {self, &impure_loop_vtable}};
+        }
+    } else if (res.success) {
+        incr_count(self);
+        self->cursor++;
+        decr_count_reader(self->variant);
+        self->variant = first_variant(self->ref);
+        self->prev_traces = push_reversed_trace(self->prev_traces, res.success);
+        const struct TraceList* success = push_swith_trace(CLONE(self->prev_traces), self->cursor * self->ordering, self->policy);
+        return (struct ReadingResult){success, {self, &impure_loop_vtable}};
+    } else {
+        return res;
+    }
+}
+
+struct Reader impure_loop_reader_of(struct Reader ref, matching_policy_t policy, loop_ordering_t ordering, tag_t tag) {
+    struct LoopReader* ptr = alloc(ref, policy, ordering, tag);
+    ptr->cursor = 0;
+    ptr->variant = ref;
+    ptr->prev_traces = empty_trace_list();
+    return (struct Reader){ptr, &impure_loop_vtable};
+}
 
 static _Noreturn const struct TraceList* resolve(const struct ResolutionReader* reader, const struct TraceList* succeeded_trace, const struct TraceList* still_ongoing_trace) {
     abort();

@@ -75,3 +75,42 @@ static inline struct ReadingResult read_and_resolve(const struct ReaderVTable* v
     static inline struct ReadingResult resolution_##prefix##_read(const void* reader, char token) { \
         return read_and_resolve(&resolution_##prefix##_vtable, reader, token, &resolve); \
     }
+
+static inline struct ReadingResult impure_read_and_resolve(const struct ReaderVTable* vtable, const void* reader, char token, resolve_t resolve) {
+    struct ResolutionReader* self = reader;
+    struct ReadingResult succeeded_res = read(self->succeeded, token);
+    struct ReadingResult still_ongoing_res = read(self->still_ongoing, token);
+    struct Reader ongoing;
+    if (succeeded_res.ongoing.self) {
+        if (still_ongoing_res.ongoing.self) {
+            incr_count(self);
+            assert(self->succeeded.self == succeeded_res.ongoing.self);
+            assert(self->still_ongoing.self == still_ongoing_res.ongoing.self);
+            decr_count_reader(self->succeeded);
+            decr_count_reader(self->still_ongoing);
+            ongoing = (struct Reader){self, vtable};
+        } else {
+            ongoing = succeeded_res.ongoing;
+        }
+    } else {
+        if (still_ongoing_res.ongoing.self) {
+            ongoing = still_ongoing_res.ongoing;
+        } else {
+            ongoing = NO_READER;
+        }
+    }
+    const struct TraceList* success = resolve_success(self, succeeded_res.success, still_ongoing_res.success, resolve);
+    return (struct ReadingResult){success, ongoing};
+}
+
+#define IMPURE_RESOLUTION_READER(prefix) \
+    IMPURE_VTABLE(resolution_##prefix)\
+    static _Noreturn const struct TraceList* resolve(const struct ResolutionReader* reader, const struct TraceList* succeeded_trace, const struct TraceList* still_ongoing_trace); \
+    \
+    static inline _Noreturn struct ReadingResult impure_resolution_##prefix##_epsilon(const void* reader) { \
+        abort(); \
+    } \
+    \
+    static inline struct ReadingResult impure_resolution_##prefix##_read(const void* reader, char token) { \
+        return impure_read_and_resolve(&impure_resolution_##prefix##_vtable, reader, token, &resolve); \
+    }

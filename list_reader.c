@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include "list_reader.h"
@@ -57,6 +58,8 @@ static inline struct ListReader shift(const struct ListReader* self, const struc
 
 static inline struct ReadingResult process(const struct ListReader* self, struct ReadingResult res) {
     struct Reader ongoing = res.ongoing.self ? (struct Reader){replace(self, res.ongoing), &list_vtable} : NO_READER;
+    // TODO maybe NO_READER can be replaced by res.ongoing to improve perf,
+    // or maybe i should modify res in place and return it instead.
     if (res.success) {
         if (self->cursor == self->elts->size - 1) {
             const struct TraceList* success = push_reversed_trace(CLONE(self->prev_traces), res.success);
@@ -89,6 +92,77 @@ struct Reader list_reader_of(const struct Reader elts[], size_t nb_elts, tag_t t
     ptr->prev_traces = empty_trace_list();
     ptr->tag = tag;
     return (struct Reader){ptr, &list_vtable};
+}
+
+IMPURE_VTABLE(list)
+IMPURE_RESOLUTION_READER(list)
+
+static inline struct ReadingResult impure_process(struct ListReader* self, struct ReadingResult res, bool need_incr) {
+    if (res.ongoing.self) {
+        if (need_incr) incr_count(self);
+        decr_count_reader(self->cur_elt);
+        self->cur_elt = res.ongoing;
+        if (res.success) {
+            if (self->cursor == self->elts->size - 1) {
+                const struct TraceList* success = push_reversed_trace(CLONE(self->prev_traces), res.success);
+                return (struct ReadingResult){success, {self, &impure_list_vtable}};
+            } else {
+                struct ListReader* shifted = alloc(CLONE(self->elts));
+                shifted->prev_traces = push_reversed_trace(CLONE(self->prev_traces), CLONE(res.success));
+                shifted->cursor = self->cursor + 1;
+                shifted->cur_elt = clone_reader(shifted->elts->readers[shifted->cursor]);
+                struct ReadingResult forward_epsilon = impure_process(shifted, epsilon(shifted->cur_elt), false);
+                struct ResolutionReader* reso = ref_counted_alloc(sizeof(struct ResolutionReader));
+                reso->succeeded = forward_epsilon.ongoing;
+                reso->still_ongoing = (struct Reader){self, &impure_list_vtable};
+                reso->success_trace = res.success;
+                reso->cursor = self->cursor;
+                assert(reso->succeeded.vtable == &impure_list_vtable || reso->succeeded.vtable == &impure_resolution_list_vtable); \
+                assert(reso->still_ongoing.vtable == &impure_list_vtable || reso->still_ongoing.vtable == &impure_resolution_list_vtable); \
+                struct Reader forward_ongoing = (struct Reader){reso, &impure_resolution_list_vtable};
+                return (struct ReadingResult){forward_epsilon.success, forward_ongoing};
+
+            }
+        } else {
+            return (struct ReadingResult){NULL, {self, &impure_list_vtable}};
+        }
+    } else if (res.success) {
+        if (self->cursor == self->elts->size - 1) {
+            const struct TraceList* success = push_reversed_trace(CLONE(self->prev_traces), res.success);
+            return (struct ReadingResult){success, NO_READER};
+        } else {
+            if (need_incr) incr_count(self);
+            self->cursor++;
+            decr_count_reader(self->cur_elt);
+            self->cur_elt = clone_reader(self->elts->readers[self->cursor]);
+            self->prev_traces = push_reversed_trace(self->prev_traces, res.success);
+            return impure_process(self, epsilon(self->cur_elt), false);
+        }
+    } else {
+        return res;
+    } 
+}
+static struct ReadingResult impure_list_read(const void* reader, char token) {
+    struct ListReader* self = reader;
+    return impure_process(self, read(self->cur_elt, token), true);
+}
+
+static struct ReadingResult impure_list_epsilon(const void* reader) {
+    const struct ListReader* self = reader;
+    struct ListReader* tmp = alloc(CLONE(self->elts));
+    tmp->prev_traces = CLONE(self->prev_traces);
+    tmp->cursor = self->cursor;
+    tmp->cur_elt = clone_reader(self->cur_elt);
+    return impure_process(tmp, epsilon(tmp->cur_elt), false);
+}
+
+struct Reader impure_list_reader_of(const struct Reader elts[], size_t nb_elts, tag_t tag) {
+    struct ListReader* ptr = alloc(reader_list_of(elts, nb_elts));
+    ptr->cursor = 0;
+    ptr->cur_elt = clone_reader(elts[0]);
+    ptr->prev_traces = empty_trace_list();
+    ptr->tag = tag;
+    return (struct Reader){ptr, &impure_list_vtable};
 }
 
 

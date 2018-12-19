@@ -10,15 +10,14 @@ static struct TokenList new_token_list() {
 }
 
 static void push_token(struct TokenList* token_list, struct Token token) {
-    const size_t len = token_list->len;
-    if (len == token_list->capacity) {
+    if (token_list->len == token_list->capacity) {
         token_list->capacity = token_list->len ? token_list->len * 2 : 1;
         struct Token* tmp = malloc(token_list->capacity * sizeof(struct Token));
         memcpy(tmp, token_list->start, token_list->len * sizeof(struct Token));
-        if (len) free(token_list->start);
+        if (token_list->len) free(token_list->start);
         token_list->start = tmp;
     }
-    token_list->start[len] = token;
+    token_list->start[token_list->len] = token;
     token_list->len++;
 }
 

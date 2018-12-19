@@ -14,3 +14,5 @@ struct SwitchReader {
 };
 
 struct Reader switch_reader_of(struct Reader cases[], size_t nb_cases, matching_policy_t policy, tag_t tag);
+
+struct Reader impure_switch_reader_of(struct Reader cases[], size_t nb_cases, matching_policy_t policy, tag_t tag);

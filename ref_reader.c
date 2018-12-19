@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <memory.h>
 #include "ref_reader.h"
+#include "memo_switch_reader.h"
 
 VTABLE(ref)
 
@@ -43,7 +44,10 @@ void set_ref(const void* ref_reader, struct Reader ref) {
 
 static void clean_ref_reader(const void* reader) {
     const struct RefReader* self = reader;
-    if (self->ref.self) decr_count_reader(self->ref);
+    if (self->ref.self) {
+        if (self->ref.vtable == memo_vtable) memo_clean(self->ref.self);
+        else decr_count_reader(self->ref);
+    }
 }
 
 void clean_ref_reader_list(struct RefReaderList readers) {

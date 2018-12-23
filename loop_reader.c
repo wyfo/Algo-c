@@ -118,7 +118,7 @@ static struct ReadingResult impure_loop_read(const void* reader, char token) {
         const struct TraceList* success = push_swith_trace(CLONE(self->prev_traces), self->cursor * self->ordering, self->policy);
         return (struct ReadingResult){success, {self, &impure_loop_vtable}};
     } else {
-        return res;
+        return FAILED;
     }
 }
 

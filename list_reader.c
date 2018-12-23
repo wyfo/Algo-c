@@ -139,7 +139,7 @@ static inline struct ReadingResult impure_process(struct ListReader* self, struc
             return impure_process(self, epsilon(self->cur_elt), false);
         }
     } else {
-        return res;
+        return FAILED;
     } 
 }
 static struct ReadingResult impure_list_read(const void* reader, char token) {

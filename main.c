@@ -189,13 +189,13 @@ int main(int argc, char const *argv[]) {
 	fflush(stdout);
 	clock_t t3 = clock();
 	nb_alloc = 0;
-	// struct ParsingResult res = parse((const char*)get_tokens(tokens), tokens.len, parser);
-	// if (res.success) printf("Hello world!\n");
-	// else printf("Nb tokens consumed = %lu\n", res.nb_tokens_read);
+	 struct ParsingResult res = parse((const char*)get_tokens(tokens), tokens.len, parser);
+	 if (res.success) printf("Hello world!\n");
+	 else printf("Nb tokens consumed = %lu\n", res.nb_tokens_read);
 	fflush(stdout);
 	clock_t t4 = clock();
-	// assert(res.success);
-	// if (res.success) decr_count(res.success, clean_trace_list);
+	 assert(res.success);
+	 if (res.success) decr_count(res.success, clean_trace_list);
 	free_token_list(tokens);
 	decr_count_reader(parser);
 	decr_count_reader(lexer);
